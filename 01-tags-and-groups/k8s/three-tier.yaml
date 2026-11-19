@@ -1,0 +1,170 @@
+# three-tier.yaml
+#
+# Web tier: vSphere Pods (nginx Deployment + LoadBalancer Service).
+# App and db tiers: VM Service VirtualMachines (vmoperator.vmware.com/v1alpha5).
+# The cloud-init for each VM is bootstrap.cloudInit.cloudConfig below.
+#
+# Replace <namespace>, <storage-class>, and vmi-xxxx before the first apply.
+# Replace <ip-db> with demo-db's address before demo-app is applied.
+# Run order: ../README.md
+#
+# Document order: nginx Deployment, nginx Service, demo-db, demo-app.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: <namespace>
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+        security.tier: web
+        security.env: dev
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: <namespace>
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: vmoperator.vmware.com/v1alpha5
+kind: VirtualMachine
+metadata:
+  name: demo-db
+  namespace: <namespace>
+  labels:
+    app: demo-db
+    security.tier: db
+    security.env: dev
+spec:
+  className: best-effort-small
+  imageName: vmi-xxxx   # an Ubuntu image from your content library
+  storageClass: <storage-class>
+  powerState: PoweredOn
+  bootstrap:
+    cloudInit:
+      cloudConfig:
+        write_files:
+          - path: /usr/local/bin/tagdemo-db.py
+            permissions: '0755'
+            content: |
+              #!/usr/bin/env python3
+              import socket
+              s = socket.socket()
+              s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+              s.bind(("", 5432))   # "" = all interfaces
+              s.listen(64)
+              while True:
+                  c, _ = s.accept()
+                  try:
+                      c.sendall(b"tagdemo-db ok\n")
+                  finally:
+                      c.close()
+          - path: /etc/systemd/system/tagdemo-db.service
+            permissions: '0644'
+            content: |
+              [Unit]
+              Description=tagdemo db listener tcp/5432
+              After=network-online.target
+              Wants=network-online.target
+              [Service]
+              ExecStart=/usr/bin/python3 /usr/local/bin/tagdemo-db.py
+              Restart=always
+              [Install]
+              WantedBy=multi-user.target
+        runcmd:
+          - '[ -f /etc/ssh/ssh_host_ed25519_key ] || ssh-keygen -A'
+          - 'systemctl enable ssh || true'
+          - 'systemctl restart ssh || systemctl restart sshd'
+          - 'iptables -I INPUT 1 -p tcp --dport 5432 -j ACCEPT || true'
+          - 'ip6tables -I INPUT 1 -p tcp --dport 5432 -j ACCEPT || true'
+          - 'ufw allow 5432/tcp || true'
+          - 'systemctl daemon-reload'
+          - 'systemctl enable --now tagdemo-db.service'
+---
+apiVersion: vmoperator.vmware.com/v1alpha5
+kind: VirtualMachine
+metadata:
+  name: demo-app
+  namespace: <namespace>
+  labels:
+    app: demo-app
+    security.tier: app
+    security.env: dev
+spec:
+  className: best-effort-small
+  imageName: vmi-xxxx   # an Ubuntu image from your content library
+  storageClass: <storage-class>
+  powerState: PoweredOn
+  bootstrap:
+    cloudInit:
+      cloudConfig:
+        write_files:
+          # Replace <ip-db> with the demo-db subnet-port address before apply.
+          - path: /etc/tagdemo/db_host
+            permissions: '0644'
+            content: |
+              <ip-db>
+          - path: /usr/local/bin/tagdemo-app.py
+            permissions: '0755'
+            content: |
+              #!/usr/bin/env python3
+              import socket
+              from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+              DB = open("/etc/tagdemo/db_host").read().strip()
+              class H(BaseHTTPRequestHandler):
+                  def do_GET(self):
+                      if self.path.split("?")[0] == "/dbcheck":
+                          try:
+                              socket.create_connection((DB, 5432), timeout=2).close()
+                              body = b"OK\n"
+                          except Exception:
+                              body = b"FAIL\n"
+                      else:
+                          body = b"tagdemo-app ok\n"
+                      self.send_response(200)
+                      self.send_header("Content-Length", str(len(body)))
+                      self.end_headers()
+                      self.wfile.write(body)
+                  def log_message(self, *a):
+                      pass
+              ThreadingHTTPServer(("", 8080), H).serve_forever()
+          - path: /etc/systemd/system/tagdemo-app.service
+            permissions: '0644'
+            content: |
+              [Unit]
+              Description=tagdemo app listener tcp/8080 (/dbcheck -> db:5432)
+              After=network-online.target
+              Wants=network-online.target
+              [Service]
+              ExecStart=/usr/bin/python3 /usr/local/bin/tagdemo-app.py
+              Restart=always
+              [Install]
+              WantedBy=multi-user.target
+        runcmd:
+          - '[ -f /etc/ssh/ssh_host_ed25519_key ] || ssh-keygen -A'
+          - 'systemctl enable ssh || true'
+          - 'systemctl restart ssh || systemctl restart sshd'
+          - 'iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT || true'
+          - 'ip6tables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT || true'
+          - 'ufw allow 8080/tcp || true'
+          - 'systemctl daemon-reload'
+          - 'systemctl enable --now tagdemo-app.service'
