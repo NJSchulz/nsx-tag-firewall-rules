@@ -1,0 +1,40 @@
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# kubeconfig
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+.kube/
+
+# Terraform (later posts)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+crash.log
+crash.*.log
+
+# Local copies of API bodies (real ids substituted in)
+*.local.json
+stats.json
+
+# Editor and OS
+.DS_Store
+*.swp
+*~

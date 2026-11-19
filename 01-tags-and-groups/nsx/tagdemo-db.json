@@ -1,0 +1,20 @@
+{
+  "display_name": "tagdemo-db",
+  "description": "tagdemo: 3-tier demo, VPC subnet ports tagged security.tier=db",
+  "expression": [
+    {
+      "resource_type": "Condition",
+      "member_type": "VpcSubnetPort",
+      "key": "Tag",
+      "operator": "EQUALS",
+      "scope_operator": "EQUALS",
+      "value": "security.tier|db"
+    }
+  ],
+  "tags": [
+    {
+      "scope": "tagdemo",
+      "tag": "3tier"
+    }
+  ]
+}

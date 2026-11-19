@@ -1,0 +1,160 @@
+{
+  "display_name": "tagdemo-3tier",
+  "description": "tagdemo: tag-based 3-tier policy (web/app/db by security.tier port tag); applied only to the 3 tagdemo groups",
+  "stateful": true,
+  "tcp_strict": false,
+  "logging_enabled": true,
+  "sequence_number": 10,
+  "scope": [
+    "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web",
+    "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-app",
+    "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-db"
+  ],
+  "tags": [
+    {
+      "scope": "tagdemo",
+      "tag": "3tier"
+    }
+  ],
+  "rules": [
+    {
+      "id": "tagdemo-a-drop-web-web",
+      "display_name": "tagdemo-drop-web-to-web",
+      "action": "DROP",
+      "sequence_number": 10,
+      "source_groups": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web"
+      ],
+      "destination_groups": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web"
+      ],
+      "scope": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web"
+      ],
+      "direction": "IN_OUT",
+      "ip_protocol": "IPV4_IPV6",
+      "logged": true,
+      "tags": [
+        {
+          "scope": "tagdemo",
+          "tag": "3tier"
+        }
+      ],
+      "services": [
+        "ANY"
+      ]
+    },
+    {
+      "id": "tagdemo-b-allow-web-app-8080",
+      "display_name": "tagdemo-allow-web-to-app-tcp8080",
+      "action": "ALLOW",
+      "sequence_number": 20,
+      "source_groups": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web"
+      ],
+      "destination_groups": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-app"
+      ],
+      "scope": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web",
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-app"
+      ],
+      "direction": "IN_OUT",
+      "ip_protocol": "IPV4_IPV6",
+      "logged": true,
+      "tags": [
+        {
+          "scope": "tagdemo",
+          "tag": "3tier"
+        }
+      ],
+      "services": [
+        "/infra/services/Oracle_XMLDB_HTTP_port"
+      ]
+    },
+    {
+      "id": "tagdemo-c-allow-app-db-5432",
+      "display_name": "tagdemo-allow-app-to-db-tcp5432",
+      "action": "ALLOW",
+      "sequence_number": 30,
+      "source_groups": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-app"
+      ],
+      "destination_groups": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-db"
+      ],
+      "scope": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-app",
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-db"
+      ],
+      "direction": "IN_OUT",
+      "ip_protocol": "IPV4_IPV6",
+      "logged": true,
+      "tags": [
+        {
+          "scope": "tagdemo",
+          "tag": "3tier"
+        }
+      ],
+      "services": [
+        "/infra/services/PostgreSQL"
+      ]
+    },
+    {
+      "id": "tagdemo-e-allow-lb-web-80",
+      "display_name": "tagdemo-allow-avi-se-to-web-tcp80",
+      "action": "ALLOW",
+      "sequence_number": 35,
+      "source_groups": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/<avi-se-datanics-group-id>"
+      ],
+      "destination_groups": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web"
+      ],
+      "services": [
+        "/infra/services/HTTP"
+      ],
+      "scope": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web"
+      ],
+      "direction": "IN_OUT",
+      "ip_protocol": "IPV4_IPV6",
+      "logged": true,
+      "tags": [
+        {
+          "scope": "tagdemo",
+          "tag": "3tier"
+        }
+      ]
+    },
+    {
+      "id": "tagdemo-d-default-deny",
+      "display_name": "tagdemo-default-deny-tagdemo",
+      "action": "DROP",
+      "sequence_number": 40,
+      "source_groups": [
+        "ANY"
+      ],
+      "destination_groups": [
+        "ANY"
+      ],
+      "scope": [
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-web",
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-app",
+        "/orgs/default/projects/default/vpcs/<vpc-id>/groups/tagdemo-db"
+      ],
+      "direction": "IN_OUT",
+      "ip_protocol": "IPV4_IPV6",
+      "logged": true,
+      "tags": [
+        {
+          "scope": "tagdemo",
+          "tag": "3tier"
+        }
+      ],
+      "services": [
+        "ANY"
+      ]
+    }
+  ]
+}
